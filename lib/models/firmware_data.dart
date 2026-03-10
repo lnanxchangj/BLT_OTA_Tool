@@ -19,7 +19,7 @@ class FirmwareSegment {
   String toString() =>
       '0x${address.toRadixString(16).toUpperCase().padLeft(8, '0')}'
       ' - 0x${endAddress.toRadixString(16).toUpperCase().padLeft(8, '0')}'
-      ' (${size} bytes)';
+      ' ($size bytes)';
 }
 
 /// 固件完整数据

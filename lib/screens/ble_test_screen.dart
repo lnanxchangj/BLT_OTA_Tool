@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:provider/provider.dart';
 import '../providers/ble_provider.dart';
 import '../services/ble_service.dart';
+import 'package:flutter/foundation.dart';
 
 class BleTestScreen extends StatefulWidget {
   const BleTestScreen({super.key});
@@ -15,7 +15,7 @@ class _BleTestScreenState extends State<BleTestScreen> {
   final _hexController = TextEditingController();
   final _textController = TextEditingController();
   final _logScrollCtrl = ScrollController();
-  BleUartConfig _selectedConfig = BleUartConfig.nordicUart;
+  BleUartConfig _selectedConfig = BleUartConfig.ffe1Notify_ffe2Write;
 
   @override
   void dispose() {
@@ -122,16 +122,27 @@ class _BleTestScreenState extends State<BleTestScreen> {
   }
 
   void _showConfigDialog(BuildContext context, BleProvider ble) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('蓝牙模组 UUID 配置'),
-        content: Column(
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('蓝牙模组 UUID 配置'),
+      content: SingleChildScrollView(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: BleUartConfig.presets.map((config) {
             return RadioListTile<BleUartConfig>(
-              title: Text(config.name),
-              subtitle: Text(config.serviceUuid, style: const TextStyle(fontSize: 10)),
+              title: Text(config.name,
+                  style: const TextStyle(fontSize: 13)),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('SVC: ${config.serviceUuid.substring(4, 8).toUpperCase()}',
+                      style: const TextStyle(fontSize: 10)),
+                  Text('TX:  ${config.writeUuid.substring(4, 8).toUpperCase()}  '
+                      'RX: ${config.notifyUuid.substring(4, 8).toUpperCase()}',
+                      style: const TextStyle(fontSize: 10, color: Colors.blue)),
+                ],
+              ),
               value: config,
               groupValue: _selectedConfig,
               onChanged: (v) {
@@ -144,14 +155,16 @@ class _BleTestScreenState extends State<BleTestScreen> {
             );
           }).toList(),
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消')),
-        ],
       ),
-    );
-  }
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('取消'),
+        ),
+      ],
+    ),
+  );
+}
 }
 
 // ─────────────────── 子组件 ───────────────────
@@ -200,6 +213,31 @@ class _ScanPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // --- 新增的代码开始 ---
+        if (kIsWeb)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Card(
+              color: Colors.orange,
+              child: Padding(
+                padding: EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.white),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Web 平台不支持 BLE 蓝牙\n请在 Android 或 iOS 真机上运行',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        // --- 新增的代码结束 ---
+
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(

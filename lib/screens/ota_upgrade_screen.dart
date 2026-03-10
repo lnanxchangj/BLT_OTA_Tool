@@ -26,6 +26,12 @@ class _OtaUpgradeScreenState extends State<OtaUpgradeScreen> {
   }
 
   @override
+  void dispose() {
+    _logScrollCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Consumer2<BleProvider, OtaProvider>(
       builder: (context, ble, ota, _) {
@@ -35,61 +41,73 @@ class _OtaUpgradeScreenState extends State<OtaUpgradeScreen> {
             title: const Text('OTA 固件升级'),
             backgroundColor: Theme.of(context).colorScheme.inversePrimary,
           ),
-          body: Padding(
-            padding: const EdgeInsets.all(12),
+          body: SafeArea(
             child: Column(
               children: [
-                // 蓝牙连接状态
-                _ConnectionCard(ble: ble),
-                const SizedBox(height: 12),
+                // ── 上半部分：卡片区，高度自适应，内容多时可滚动 ──
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.55,
+                  ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // 连接状态卡片
+                        _ConnectionCard(ble: ble),
+                        const SizedBox(height: 8),
 
-                // 固件信息卡
-                _FirmwareCard(ota: ota),
-                const SizedBox(height: 12),
+                        // 固件文件卡片
+                        _FirmwareCard(ota: ota),
+                        const SizedBox(height: 8),
 
-                // 升级进度
-                if (ota.state == OtaState.upgrading ||
-                    ota.state == OtaState.success ||
-                    ota.state == OtaState.failed)
-                  _ProgressCard(ota: ota),
+                        // 升级进度卡片（仅升级中/完成/失败时显示）
+                        if (ota.state == OtaState.upgrading ||
+                            ota.state == OtaState.success ||
+                            ota.state == OtaState.failed) ...[
+                          _ProgressCard(ota: ota),
+                          const SizedBox(height: 8),
+                        ],
 
-                if (ota.state == OtaState.upgrading ||
-                    ota.state == OtaState.success ||
-                    ota.state == OtaState.failed)
-                  const SizedBox(height: 12),
-
-                // 升级按钮
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    onPressed: ota.canUpgrade ? ota.startUpgrade : null,
-                    icon: ota.state == OtaState.upgrading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.system_update),
-                    label: Text(
-                      ota.state == OtaState.upgrading
-                          ? '升级中...'
-                          : '开始升级',
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          ota.state == OtaState.success
-                              ? Colors.green
-                              : null,
+                        // 升级按钮
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            onPressed:
+                                ota.canUpgrade ? ota.startUpgrade : null,
+                            icon: ota.state == OtaState.upgrading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.system_update),
+                            label: Text(
+                              ota.state == OtaState.upgrading
+                                  ? '升级中...'
+                                  : '开始升级',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: ota.state == OtaState.success
+                                  ? Colors.green
+                                  : null,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
 
-                // 日志区
+                // ── 下半部分：日志区，占满剩余空间 ──
                 Expanded(
                   child: Container(
+                    margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: Colors.black87,
@@ -98,6 +116,7 @@ class _OtaUpgradeScreenState extends State<OtaUpgradeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // 日志标题栏
                         Row(
                           children: [
                             const Text(
@@ -108,33 +127,22 @@ class _OtaUpgradeScreenState extends State<OtaUpgradeScreen> {
                             const Spacer(),
                             TextButton(
                               onPressed: ota.clearLogs,
-                              child: const Text('清空',
-                                  style: TextStyle(
-                                      color: Colors.white54, fontSize: 11)),
+                              child: const Text(
+                                '清空',
+                                style: TextStyle(
+                                    color: Colors.white54, fontSize: 11),
+                              ),
                             ),
                           ],
                         ),
+                        // 日志列表
                         Expanded(
                           child: ListView.builder(
                             controller: _logScrollCtrl,
                             itemCount: ota.logs.length,
                             itemBuilder: (ctx, i) {
                               final log = ota.logs[i];
-                              Color color = Colors.white70;
-                              if (log.contains('TX:') || log.contains('→')) {
-                                color = Colors.cyanAccent;
-                              } else if (log.contains('RX:') ||
-                                  log.contains('←')) {
-                                color = Colors.greenAccent;
-                              } else if (log.contains('错误') ||
-                                  log.contains('失败') ||
-                                  log.contains('error') ||
-                                  log.contains('Error')) {
-                                color = Colors.redAccent;
-                              } else if (log.contains('===') ||
-                                  log.contains('成功')) {
-                                color = Colors.yellowAccent;
-                              }
+                              final color = _logColor(log);
                               return Text(
                                 log,
                                 style: TextStyle(
@@ -158,14 +166,29 @@ class _OtaUpgradeScreenState extends State<OtaUpgradeScreen> {
     );
   }
 
-  @override
-  void dispose() {
-    _logScrollCtrl.dispose();
-    super.dispose();
+  Color _logColor(String log) {
+    if (log.contains('→ TX')) return Colors.cyanAccent;
+    if (log.contains('← ')) return Colors.greenAccent;
+    if (log.contains('✗') ||
+        log.contains('失败') ||
+        log.contains('错误') ||
+        log.contains('Error')) {
+      return Colors.redAccent;
+    }
+    if (log.contains('✓') ||
+        log.contains('成功') ||
+        log.contains('===')) {
+      return Colors.yellowAccent;
+    }
+    if (log.contains('⚠')) return Colors.orangeAccent;
+    if (log.contains('[进度]')) return Colors.lightBlueAccent;
+    return Colors.white70;
   }
 }
 
-// ─────────────────── 子卡片组件 ───────────────────
+// ═══════════════════════════════════════════════════════
+//  子组件
+// ═══════════════════════════════════════════════════════
 
 class _ConnectionCard extends StatelessWidget {
   final BleProvider ble;
@@ -182,15 +205,22 @@ class _ConnectionCard extends StatelessWidget {
           color: ble.isConnected ? Colors.green : Colors.grey,
         ),
         title: Text(ble.isConnected ? '已连接设备' : '未连接'),
-        subtitle: Text(ble.statusMsg, style: const TextStyle(fontSize: 12)),
+        subtitle:
+            Text(ble.statusMsg, style: const TextStyle(fontSize: 12)),
         trailing: ble.isConnected
-            ? Chip(
-                label: const Text('已连接',
-                    style: TextStyle(color: Colors.white, fontSize: 11)),
+            ? const Chip(
+                label: Text(
+                  '已连接',
+                  style: TextStyle(color: Colors.white, fontSize: 11),
+                ),
                 backgroundColor: Colors.green,
               )
-            : const Chip(label: Text('请在蓝牙透传页面先连接设备',
-                style: TextStyle(fontSize: 11))),
+            : const Chip(
+                label: Text(
+                  '请先在蓝牙透传页连接',
+                  style: TextStyle(fontSize: 11),
+                ),
+              ),
       ),
     );
   }
@@ -208,12 +238,15 @@ class _FirmwareCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 标题行 + 选择按钮
             Row(
               children: [
                 const Icon(Icons.memory, size: 20),
                 const SizedBox(width: 8),
-                const Text('固件文件',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  '固件文件',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 const Spacer(),
                 ElevatedButton.icon(
                   onPressed: ota.state != OtaState.upgrading
@@ -222,15 +255,18 @@ class _FirmwareCard extends StatelessWidget {
                   icon: const Icon(Icons.folder_open, size: 18),
                   label: const Text('选择文件'),
                   style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                  ),
                 ),
               ],
             ),
+
+            // 固件信息（解析成功后显示）
             if (ota.firmware != null) ...[
               const Divider(),
               _InfoRow('文件名', ota.firmware!.fileName),
-              _InfoRow('文件类型', ota.firmware!.fileType.toUpperCase()),
+              _InfoRow('类型', ota.firmware!.fileType.toUpperCase()),
               _InfoRow(
                 '起始地址',
                 '0x${ota.firmware!.startAddress.toRadixString(16).toUpperCase().padLeft(8, '0')}',
@@ -239,15 +275,17 @@ class _FirmwareCard extends StatelessWidget {
                 '结束地址',
                 '0x${ota.firmware!.endAddress.toRadixString(16).toUpperCase().padLeft(8, '0')}',
               ),
-              _InfoRow('数据大小', '${ota.firmware!.totalBytes} 字节'),
-              _InfoRow('内存段数', '${ota.firmware!.segments.length}'),
+              _InfoRow('大小', '${ota.firmware!.totalBytes} 字节'),
+              _InfoRow('段数', '${ota.firmware!.segments.length}'),
             ] else ...[
               const SizedBox(height: 8),
               Text(
                 ota.statusMsg,
                 style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 13),
+                  color:
+                      Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 13,
+                ),
               ),
             ],
           ],
@@ -269,15 +307,18 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(
-            width: 80,
-            child: Text(label,
-                style: const TextStyle(
-                    color: Colors.grey, fontSize: 12)),
+            width: 72,
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
+            ),
           ),
           Expanded(
-            child: Text(value,
-                style: const TextStyle(
-                    fontSize: 12, fontFamily: 'monospace')),
+            child: Text(
+              value,
+              style: const TextStyle(
+                  fontSize: 12, fontFamily: 'monospace'),
+            ),
           ),
         ],
       ),
@@ -346,9 +387,11 @@ class _ProgressCard extends StatelessWidget {
             ),
             if (ota.progressMsg.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Text(ota.progressMsg,
-                  style: const TextStyle(
-                      color: Colors.grey, fontSize: 11)),
+              Text(
+                ota.progressMsg,
+                style: const TextStyle(
+                    color: Colors.grey, fontSize: 11),
+              ),
             ],
           ],
         ),
