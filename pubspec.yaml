@@ -1,5 +1,5 @@
 name: blt_ota_tool
-description: "A new Flutter project."
+description: "Bluetooth OTA upgrade tool for OpenBLT"
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -9,6 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_blue_plus: ^1.35.5
+  file_picker: ^8.1.2
+  permission_handler: ^11.3.1
+  provider: ^6.1.2
 
 dev_dependencies:
   flutter_test:
